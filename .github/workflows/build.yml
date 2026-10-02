@@ -49,7 +49,11 @@ jobs:
           pip install --upgrade pip wheel
           pip install buildozer==1.5.0 cython==0.29.33
 
-      # FIX : le "| tee" masquait l'erreur → supprimé
+      - name: 🔎 Vérifier le projet Buildozer
+        run: |
+          test -f buildozer.spec
+          test -f main.py
+
       - name: 🏗️ Compiler APK (debug)
         run: buildozer -v android debug
 
