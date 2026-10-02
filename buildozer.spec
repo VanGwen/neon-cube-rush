@@ -1,49 +1,35 @@
 [app]
 
-# (str) Titre de l'application
-title = Mon Application
+title = Neon Cube Rush
+package.name = neoncuberush
+package.domain = org.jem
+version = 1.0
 
-# (str) Nom du paquet
-package.name = monapp
-
-# (str) Domaine du paquet (nécessaire pour Android)
-package.domain = org.monentreprise
-
-# (str) Dossier contenant le code source main.py
 source.dir = .
+source.include_exts = py,png,jpg,jpeg,json,wav,ogg,mp3,ttf
+source.exclude_dirs = tests,bin,.buildozer,__pycache__,.git,.github
 
-# (list) Extensions de fichiers à inclure
-source.include_exts = py,png,jpg,kv,atlas
+# Dependances Python et Pygame
+requirements = python3,pygame
 
-# (list) Dépendances de l'application
-# Remarque : python3 est laissé sans version fixe pour éviter les erreurs de compilation
-requirements = python3,kivy
-
-# (str) Orientation supportée (portrait, landscape, etc.)
+# Configuration Android
 orientation = portrait
+fullscreen = 1
 
-# (bool) Indique si l'application doit s'exécuter en plein écran
-fullscreen = 0
-
-# (list) Permissions Android (décommentez si nécessaire)
-# android.permissions = INTERNET
-
-# (int) Version API cible Android
-android.api = 33
-
-# (int) Version API minimale supportée
+android.permissions = VIBRATE
 android.minapi = 21
-
-# (bool) Accepter automatiquement la licence du SDK Android
+android.api = 33
+android.archs = arm64-v8a,armeabi-v7a
+android.allow_backup = True
 android.accept_sdk_license = True
 
-# (str) Architectures Android cibles
-android.archs = arm64-v8a, armeabi-v7a
+# Génération de l'APK
+android.release_artifact = apk
+
+# Configuration python-for-android
+p4a.branch = master
 
 [buildozer]
 
-# (int) Niveau de journalisation (2 = verbeux)
 log_level = 2
-
-# (int) Avertir si Buildozer est exécuté en tant que root
 warn_on_root = 1
