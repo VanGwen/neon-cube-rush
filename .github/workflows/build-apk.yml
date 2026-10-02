@@ -1,0 +1,194 @@
+name: 🎮 Build Neon Cube Rush APK
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+
+      # ─────────────────────────────────────────────
+      # SOURCE
+      # ─────────────────────────────────────────────
+
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────
+      # JAVA
+      # ─────────────────────────────────────────────
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # ─────────────────────────────────────────────
+      # PYTHON
+      # ─────────────────────────────────────────────
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      # ─────────────────────────────────────────────
+      # LINUX DEPENDENCIES
+      # ─────────────────────────────────────────────
+
+      - name: 📦 Install system dependencies
+        run: |
+          sudo apt-get update -qq
+
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            wget \
+            curl \
+            unzip \
+            zip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            python3-dev
+
+      # ─────────────────────────────────────────────
+      # CACHE
+      # ─────────────────────────────────────────────
+
+      - name: 💾 Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      # ─────────────────────────────────────────────
+      # BUILD TOOLS
+      # ─────────────────────────────────────────────
+
+      - name: 🔧 Install Buildozer
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+          python -m pip install \
+            buildozer==1.5.0 \
+            cython==0.29.33
+
+      # ─────────────────────────────────────────────
+      # PROJECT CHECK
+      # ─────────────────────────────────────────────
+
+      - name: 🔎 Verify project files
+        run: |
+          echo "=== Project root ==="
+          ls -la
+
+          echo ""
+          echo "=== Required files ==="
+
+          test -f buildozer.spec || {
+            echo "❌ ERROR: buildozer.spec is missing."
+            exit 1
+          }
+
+          test -f main.py || {
+            echo "❌ ERROR: main.py is missing."
+            exit 1
+          }
+
+          echo "✅ buildozer.spec found"
+          echo "✅ main.py found"
+
+      # ─────────────────────────────────────────────
+      # BUILD
+      # ─────────────────────────────────────────────
+
+      - name: 🏗️ Build debug APK
+        id: build
+        run: |
+          buildozer -v android debug
+
+      # ─────────────────────────────────────────────
+      # APK DIAGNOSTICS
+      # ─────────────────────────────────────────────
+
+      - name: 🔍 Diagnose generated APK
+        if: always()
+        run: |
+          echo "======================================"
+          echo "BUILD DIAGNOSTICS"
+          echo "======================================"
+
+          echo ""
+          echo "=== bin/ ==="
+          ls -lah bin/ 2>/dev/null || echo "bin/ does not exist"
+
+          echo ""
+          echo "=== APK files ==="
+          find . \
+            -type f \
+            -name "*.apk" \
+            -not -path "./.buildozer/*" \
+            -print 2>/dev/null || true
+
+          echo ""
+          echo "=== AAB files ==="
+          find . \
+            -type f \
+            -name "*.aab" \
+            -not -path "./.buildozer/*" \
+            -print 2>/dev/null || true
+
+          echo ""
+          echo "======================================"
+
+      # ─────────────────────────────────────────────
+      # UPLOAD APK
+      # ─────────────────────────────────────────────
+
+      - name: 📱 Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonCubeRush-APK
+          path: bin/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      # ─────────────────────────────────────────────
+      # UPLOAD LOGS
+      # ─────────────────────────────────────────────
+
+      - name: 📋 Upload Buildozer logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonCubeRush-build-logs
+          path: |
+            ~/.buildozer/logs/
+            .buildozer/android/platform/build-*/build.log
+          retention-days: 7
+          if-no-files-found: ignore
