@@ -1,55 +1,64 @@
-name: 🎮 Build Neon Cube Rush APK
+name: Build Neon Cube Rush APK
 
 on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-apk:
+  build:
     name: Build Android APK
     runs-on: ubuntu-22.04
+
     timeout-minutes: 120
 
     steps:
 
       # ─────────────────────────────
-      # Récupération du projet
+      # 1. Récupérer le projet
       # ─────────────────────────────
-      - name: 📥 Checkout
+
+      - name: Checkout
         uses: actions/checkout@v4
 
+
       # ─────────────────────────────
-      # Python
+      # 2. Installer Python
+      #
+      # IMPORTANT :
+      # Aucun cache pip ici.
       # ─────────────────────────────
-      - name: 🐍 Setup Python 3.11
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
+
 
       # ─────────────────────────────
-      # Java
+      # 3. Installer Java 17
       #
       # IMPORTANT :
-      # Pas de "cache: gradle".
-      # Buildozer génère le projet Gradle
-      # pendant le build.
+      # Aucun cache Gradle ici.
       # ─────────────────────────────
-      - name: ☕ Setup Java 17
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
+
       # ─────────────────────────────
-      # Dépendances Linux
+      # 4. Dépendances système
       # ─────────────────────────────
-      - name: 📦 Install dependencies
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
 
@@ -70,10 +79,12 @@ jobs:
             zlib1g-dev \
             python3-dev
 
+
       # ─────────────────────────────
-      # Installation Buildozer
+      # 5. Installer Buildozer
       # ─────────────────────────────
-      - name: 🔧 Install Buildozer
+
+      - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           python -m pip install setuptools wheel
@@ -82,37 +93,67 @@ jobs:
             buildozer==1.5.0 \
             cython==0.29.33
 
+
       # ─────────────────────────────
-      # Vérification
+      # 6. Vérifier les fichiers
       # ─────────────────────────────
-      - name: 🔎 Check project
+
+      - name: Verify project
         run: |
-          echo "===== PROJECT ====="
+          echo "================================="
+          echo "PROJECT FILES"
+          echo "================================="
+
+          pwd
           ls -la
 
           echo ""
-          echo "===== REQUIRED FILES ====="
+          echo "Checking required files..."
 
-          test -f main.py
-          test -f buildozer.spec
+          if [ ! -f "main.py" ]; then
+            echo "❌ main.py is missing!"
+            exit 1
+          fi
+
+          if [ ! -f "buildozer.spec" ]; then
+            echo "❌ buildozer.spec is missing!"
+            exit 1
+          fi
 
           echo "✅ main.py found"
           echo "✅ buildozer.spec found"
 
+
       # ─────────────────────────────
-      # Build APK
+      # 7. Vérifier Buildozer
       # ─────────────────────────────
-      - name: 🏗️ Build APK
+
+      - name: Check Buildozer
+        run: |
+          python --version
+          pip --version
+          buildozer --version
+
+
+      # ─────────────────────────────
+      # 8. Construire l'APK
+      # ─────────────────────────────
+
+      - name: Build APK
         run: |
           buildozer -v android debug
 
+
       # ─────────────────────────────
-      # Afficher les APK générés
+      # 9. Chercher l'APK
       # ─────────────────────────────
-      - name: 🔍 Find APK
+
+      - name: Find APK
         if: always()
         run: |
-          echo "===== APK FILES ====="
+          echo "================================="
+          echo "SEARCHING FOR APK"
+          echo "================================="
 
           find . \
             -type f \
@@ -120,10 +161,21 @@ jobs:
             -not -path "./.buildozer/*" \
             -print
 
+          echo ""
+          echo "Contents of bin/:"
+
+          if [ -d "bin" ]; then
+            ls -lah bin/
+          else
+            echo "bin/ does not exist"
+          fi
+
+
       # ─────────────────────────────
-      # Upload APK dans Artifacts
+      # 10. Envoyer l'APK dans Artifacts
       # ─────────────────────────────
-      - name: 📱 Upload APK
+
+      - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -132,16 +184,19 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+
       # ─────────────────────────────
-      # Upload logs en cas de problème
+      # 11. En cas d'erreur :
+      # récupérer les logs
       # ─────────────────────────────
-      - name: 📋 Upload build logs
+
+      - name: Upload Buildozer logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: NeonCubeRush-Build-Logs
           path: |
-            ~/.buildozer/
             .buildozer/
+            ~/.buildozer/
           retention-days: 7
           if-no-files-found: ignore
