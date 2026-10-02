@@ -14,7 +14,6 @@ jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-22.04
-
     timeout-minutes: 120
 
     steps:
@@ -28,10 +27,7 @@ jobs:
 
 
       # ─────────────────────────────
-      # 2. Installer Python
-      #
-      # IMPORTANT :
-      # Aucun cache pip ici.
+      # 2. Python
       # ─────────────────────────────
 
       - name: Setup Python
@@ -41,10 +37,7 @@ jobs:
 
 
       # ─────────────────────────────
-      # 3. Installer Java 17
-      #
-      # IMPORTANT :
-      # Aucun cache Gradle ici.
+      # 3. Java
       # ─────────────────────────────
 
       - name: Setup Java
@@ -55,7 +48,7 @@ jobs:
 
 
       # ─────────────────────────────
-      # 4. Dépendances système
+      # 4. Dépendances Linux
       # ─────────────────────────────
 
       - name: Install system dependencies
@@ -95,48 +88,111 @@ jobs:
 
 
       # ─────────────────────────────
-      # 6. Vérifier les fichiers
+      # 6. Installer Android SDK
+      # ─────────────────────────────
+
+      - name: Install Android SDK
+        run: |
+          SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+
+          cd "$RUNNER_TEMP"
+
+          wget -q \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -O cmdline-tools.zip
+
+          unzip -q cmdline-tools.zip
+
+          rm -rf "$SDK_ROOT/cmdline-tools/latest"
+
+          mkdir -p "$SDK_ROOT/cmdline-tools/latest"
+
+          cp -R cmdline-tools/* \
+            "$SDK_ROOT/cmdline-tools/latest/"
+
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/build-tools/34.0.0" >> "$GITHUB_PATH"
+
+          yes | sdkmanager --licenses >/dev/null || true
+
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;34.0.0"
+
+          echo ""
+          echo "===== INSTALLED BUILD TOOLS ====="
+
+          ls -lah "$SDK_ROOT/build-tools"
+
+          echo ""
+          echo "===== AIDL ====="
+
+          find "$SDK_ROOT/build-tools" \
+            -name aidl \
+            -type f \
+            -print
+
+
+      # ─────────────────────────────
+      # 7. Vérifier AIDL
+      # ─────────────────────────────
+
+      - name: Verify Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          echo ""
+          echo "Build Tools:"
+
+          ls -lah "$ANDROID_HOME/build-tools"
+
+          echo ""
+          echo "AIDL:"
+
+          "$ANDROID_HOME/build-tools/34.0.0/aidl" --version
+
+          echo ""
+          echo "✅ AIDL fonctionne"
+
+
+      # ─────────────────────────────
+      # 8. Vérifier le projet
       # ─────────────────────────────
 
       - name: Verify project
         run: |
-          echo "================================="
-          echo "PROJECT FILES"
-          echo "================================="
+          echo "===== PROJECT ====="
 
           pwd
           ls -la
 
-          echo ""
-          echo "Checking required files..."
-
-          if [ ! -f "main.py" ]; then
-            echo "❌ main.py is missing!"
+          test -f main.py || {
+            echo "❌ main.py missing"
             exit 1
-          fi
+          }
 
-          if [ ! -f "buildozer.spec" ]; then
-            echo "❌ buildozer.spec is missing!"
+          test -f buildozer.spec || {
+            echo "❌ buildozer.spec missing"
             exit 1
-          fi
+          }
 
-          echo "✅ main.py found"
-          echo "✅ buildozer.spec found"
-
-
-      # ─────────────────────────────
-      # 7. Vérifier Buildozer
-      # ─────────────────────────────
-
-      - name: Check Buildozer
-        run: |
-          python --version
-          pip --version
-          buildozer --version
+          echo "✅ main.py"
+          echo "✅ buildozer.spec"
 
 
       # ─────────────────────────────
-      # 8. Construire l'APK
+      # 9. Build
       # ─────────────────────────────
 
       - name: Build APK
@@ -145,15 +201,13 @@ jobs:
 
 
       # ─────────────────────────────
-      # 9. Chercher l'APK
+      # 10. Chercher l'APK
       # ─────────────────────────────
 
       - name: Find APK
         if: always()
         run: |
-          echo "================================="
-          echo "SEARCHING FOR APK"
-          echo "================================="
+          echo "===== APK ====="
 
           find . \
             -type f \
@@ -162,17 +216,15 @@ jobs:
             -print
 
           echo ""
-          echo "Contents of bin/:"
+          echo "===== BIN ====="
 
-          if [ -d "bin" ]; then
-            ls -lah bin/
-          else
-            echo "bin/ does not exist"
+          if [ -d bin ]; then
+            ls -lah bin
           fi
 
 
       # ─────────────────────────────
-      # 10. Envoyer l'APK dans Artifacts
+      # 11. Envoyer l'APK
       # ─────────────────────────────
 
       - name: Upload APK
@@ -186,11 +238,10 @@ jobs:
 
 
       # ─────────────────────────────
-      # 11. En cas d'erreur :
-      # récupérer les logs
+      # 12. Logs en cas d'échec
       # ─────────────────────────────
 
-      - name: Upload Buildozer logs
+      - name: Upload build logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
