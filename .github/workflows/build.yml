@@ -3,7 +3,7 @@ name: 🎮 Build Neon Cube Rush APK
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:       # Bouton "Run workflow" manuel sur GitHub
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -12,24 +12,20 @@ jobs:
 
     steps:
 
-      # 1 ─ Récupérer le code
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # 2 ─ Java 17 (requis par Android SDK)
       - name: ☕ Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 3 ─ Python 3.11
       - name: 🐍 Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 4 ─ Dépendances système Linux
       - name: 📦 Dépendances système
         run: |
           sudo apt-get update -qq
@@ -39,8 +35,6 @@ jobs:
             zlib1g-dev autoconf libtool \
             pkg-config libltdl-dev
 
-      # 5 ─ Cache (.buildozer = SDK/NDK/dépendances déjà compilées)
-      #     La 2e compilation sera 10× plus rapide grâce à ce cache.
       - name: 💾 Cache Buildozer
         uses: actions/cache@v4
         with:
@@ -50,18 +44,24 @@ jobs:
           key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-${{ runner.os }}-
 
-      # 6 ─ Installer Buildozer + Cython
       - name: 🔧 Installer Buildozer & Cython
         run: |
           pip install --upgrade pip wheel
           pip install buildozer==1.5.0 cython==0.29.33
 
-      # 7 ─ Compiler l'APK
+      # FIX : le "| tee" masquait l'erreur → supprimé
       - name: 🏗️ Compiler APK (debug)
-        run: |
-          buildozer -v android debug 2>&1 | tee build.log
+        run: buildozer -v android debug
 
-      # 8 ─ Uploader l'APK comme artefact téléchargeable
+      # Diagnostic : montre ce qui a été généré
+      - name: 🔍 Vérifier APK
+        if: always()
+        run: |
+          echo "=== bin/ ==="
+          ls -la bin/ 2>/dev/null || echo "bin/ introuvable"
+          echo "=== APK trouvés ==="
+          find . -name "*.apk" 2>/dev/null || echo "Aucun APK"
+
       - name: 📱 Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -70,11 +70,12 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      # 9 ─ En cas d'erreur : uploader les logs pour diagnostiquer
-      - name: 📋 Upload logs (si échec)
-        if: failure()
+      - name: 📋 Upload logs (toujours)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: build.log
+          path: |
+            ~/.buildozer/logs/
           retention-days: 7
+          if-no-files-found: ignore
