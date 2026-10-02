@@ -7,8 +7,7 @@ Android      : buildozer android debug
 
 Controls (Android)
 ------------------
-  DOIGT   : Glisser VITE sur le cube  → move
-            Glisser LENT              → rotation vue
+  DOIGT   : Glisser sur le cube → move
   RETOUR  : Bouton Android = retour menu / quitter
 """
 
@@ -364,7 +363,7 @@ def draw_menu(surf, cp):
     for (t,r,bg,fg),act in zip(buttons,actions):
         btn(surf,t,*r,bg,fg,a,F1)
         if clicked(r,cp): return act
-    txt(surf,"GLISSER VITE = MOVE  |  LENT = ROTATION",W//2,450,FX,(45,45,45),cx=True)
+    txt(surf,"GLISSER SUR LE CUBE = MOVE",W//2,450,FX,(45,45,45),cx=True)
     return None
 
 # ── ACTIONS JEU ──────────────────────────────────────────────────────
